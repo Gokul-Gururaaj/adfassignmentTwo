@@ -1,0 +1,86 @@
+{
+	"name": "RowFilterDataflow",
+	"properties": {
+		"type": "MappingDataFlow",
+		"typeProperties": {
+			"sources": [
+				{
+					"dataset": {
+						"referenceName": "ds_src_error_rows",
+						"type": "DatasetReference"
+					},
+					"name": "SourceFileWithErrorRows"
+				}
+			],
+			"sinks": [
+				{
+					"dataset": {
+						"referenceName": "ds_sink1_error_row_filter",
+						"type": "DatasetReference"
+					},
+					"name": "GoodRowsSink"
+				},
+				{
+					"dataset": {
+						"referenceName": "ds_sink2_row_filter",
+						"type": "DatasetReference"
+					},
+					"name": "ErrorRowsSink"
+				}
+			],
+			"transformations": [
+				{
+					"name": "asserter"
+				},
+				{
+					"name": "RowSplitter"
+				}
+			],
+			"scriptLines": [
+				"source(output(",
+				"          id as string,",
+				"          name as string,",
+				"          doj as string,",
+				"          domain as string",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     ignoreNoFilesFound: false) ~> SourceFileWithErrorRows",
+				"SourceFileWithErrorRows assert(expectUnique(id, false, 'unique_assert'),",
+				"     expectTrue(!isNull(toDate(doj,'yyyy-MM-dd')), false, 'date_assert')) ~> asserter",
+				"asserter split(!isError(),",
+				"     disjoint: false) ~> RowSplitter@(GoodRows, ErrorRows)",
+				"RowSplitter@GoodRows sink(allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     input(",
+				"          id as string,",
+				"          name as string,",
+				"          doj as string,",
+				"          domain as string",
+				"     ),",
+				"     partitionFileNames:['dojwithgoodrows'],",
+				"     umask: 0022,",
+				"     preCommands: [],",
+				"     postCommands: [],",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true,",
+				"     partitionBy('hash', 1)) ~> GoodRowsSink",
+				"RowSplitter@ErrorRows sink(allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     input(",
+				"          id as string,",
+				"          name as string,",
+				"          doj as string,",
+				"          domain as string",
+				"     ),",
+				"     partitionFileNames:['dojwitherrorrows'],",
+				"     umask: 0022,",
+				"     preCommands: [],",
+				"     postCommands: [],",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true,",
+				"     partitionBy('hash', 1)) ~> ErrorRowsSink"
+			]
+		}
+	}
+}
